@@ -1,8 +1,6 @@
 /**
  * @file node.cpp
  * @brief Implementation of the Node class.
- *
- * A Node orchestrates the three OSI layers internally.
  */
 
 #include "node.h"
@@ -10,11 +8,10 @@
 #include <sstream>
 #include <stdexcept>
 
-// Constructor
 Node::Node(const std::string& name, const std::string& ip, const std::string& mac)
     : name_(name), ip_(ip), mac_(mac) {}
 
-// prepareSend — walk the message DOWN the stack (L3 -> L2 -> L1)
+// prepareSend -- walk a full message DOWN the stack (L3 -> L2 -> L1)
 std::string Node::prepareSend(const std::string& message,
                               const std::string& destIP,
                               const std::string& destMAC,
@@ -22,36 +19,48 @@ std::string Node::prepareSend(const std::string& message,
     logInfo(name_ + " is sending data DOWN the protocol stack...");
     printSeparator();
 
-    // Layer 3 — Network
     Packet pkt = networkLayer_.encapsulate(message, ip_, destIP);
     std::string serializedPacket = pkt.serialize();
     printSeparator();
 
-    // Layer 2 — Data Link
     Frame frame = dataLinkLayer_.encapsulate(serializedPacket, mac_, destMAC, seqNum);
     std::string serializedFrame = frame.serialize();
     printSeparator();
 
-    // Layer 1 — Physical
     std::string bitStream = physicalLayer_.encode(serializedFrame);
     printSeparator();
 
     return bitStream;
 }
 
-// receiveData — walk a bit stream UP the stack (L1 -> L2 -> L3)
+// prepareSendPacket -- encapsulate a pre-built Packet at L2 -> L1
+std::string Node::prepareSendPacket(const Packet& pkt,
+                                     const std::string& destMAC,
+                                     int seqNum) {
+    std::ostringstream oss;
+    oss << name_ << " sending fragment [" << pkt.fragmentOffset
+        << "] as seq=" << seqNum;
+    logInfo(oss.str());
+
+    std::string serializedPacket = pkt.serialize();
+
+    Frame frame = dataLinkLayer_.encapsulate(serializedPacket, mac_, destMAC, seqNum);
+    std::string serializedFrame = frame.serialize();
+
+    std::string bitStream = physicalLayer_.encode(serializedFrame);
+
+    return bitStream;
+}
+
+// receiveData -- walk a bit stream UP the stack (L1 -> L2 -> L3)
 std::string Node::receiveData(const std::string& bitStream,
                               bool& crcOK, int& receivedSeqNum) {
     logInfo(name_ + " is receiving data UP the protocol stack...");
     printSeparator();
 
-    // Layer 1 — Physical
     std::string decodedBytes = physicalLayer_.decode(bitStream);
     printSeparator();
 
-    // Layer 2 — Data Link
-    // Noise may corrupt delimiter characters, making deserialization fail.
-    // We treat any parse failure the same as a CRC mismatch (corrupted frame).
     Frame frame;
     try {
         frame = Frame::deserialize(decodedBytes);
@@ -71,8 +80,6 @@ std::string Node::receiveData(const std::string& bitStream,
 
     if (!crcOK) return "";
 
-    // Layer 3 — Network
-    // Noise could also corrupt the inner packet delimiters.
     try {
         Packet pkt = Packet::deserialize(frame.encapsulatedData);
         std::string payload = networkLayer_.decapsulate(pkt);
@@ -83,6 +90,36 @@ std::string Node::receiveData(const std::string& bitStream,
         crcOK = false;
         printSeparator();
         return "";
+    }
+}
+
+// receivePacket -- walk up L1 -> L2 and return the raw Packet
+Packet Node::receivePacket(const std::string& bitStream,
+                            bool& crcOK, int& receivedSeqNum) {
+    std::string decodedBytes = physicalLayer_.decode(bitStream);
+
+    Frame frame;
+    try {
+        frame = Frame::deserialize(decodedBytes);
+    } catch (const std::exception&) {
+        crcOK = false;
+        receivedSeqNum = 0;
+        return Packet{};
+    }
+
+    receivedSeqNum = frame.seqNum;
+    dataLinkLayer_.decapsulate(frame);
+    crcOK = dataLinkLayer_.verifyCRC(frame);
+
+    if (!crcOK) return Packet{};
+
+    try {
+        Packet pkt = Packet::deserialize(frame.encapsulatedData);
+        networkLayer_.decapsulate(pkt);
+        return pkt;
+    } catch (const std::exception&) {
+        crcOK = false;
+        return Packet{};
     }
 }
 
@@ -98,10 +135,11 @@ std::string Node::createNACKBitStream(const std::string& destMAC, int seqNum) {
     return physicalLayer_.encode(nack.serialize());
 }
 
-// receiveControl — decode an ACK/NACK bit stream
-FrameType Node::receiveControl(const std::string& bitStream) {
+// receiveControl -- with ackSeqNum out-param
+FrameType Node::receiveControl(const std::string& bitStream, int& ackSeqNum) {
     std::string decoded = physicalLayer_.decode(bitStream);
     Frame frame = Frame::deserialize(decoded);
+    ackSeqNum = frame.seqNum;
 
     if (frame.type == FrameType::ACK) {
         logSuccess("Received ACK for Seq #" + std::to_string(frame.seqNum));
@@ -110,4 +148,10 @@ FrameType Node::receiveControl(const std::string& bitStream) {
                  " -- must RETRANSMIT!");
     }
     return frame.type;
+}
+
+// Backward-compat overload
+FrameType Node::receiveControl(const std::string& bitStream) {
+    int dummy = 0;
+    return receiveControl(bitStream, dummy);
 }
