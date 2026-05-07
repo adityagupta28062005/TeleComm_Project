@@ -44,10 +44,11 @@ static void printBanner() {
     std::cout << Color::BOLD_CYAN;
     std::cout << "  +============================================================+\n";
     std::cout << "  |                                                            |\n";
-    std::cout << "  |     OSI  PROTOCOL  STACK  SIMULATION   (C++17)             |\n";
-    std::cout << "  |     Network  |  Data Link  |  Physical  Layers             |\n";
+    std::cout << "  |   GENOME DATA TRANSMISSION OVER NOISY CHANNELS  (C++17)    |\n";
+    std::cout << "  |   OSI Protocol Stack: Network | Data Link | Physical       |\n";
     std::cout << "  |                                                            |\n";
-    std::cout << "  |  Features: Go-Back-N | Fragmentation | Statistics          |\n";
+    std::cout << "  |   Go-Back-N ARQ | IP Fragmentation | CRC-32 Detection      |\n";
+    std::cout << "  |   Application: Distributed Genome Sequencing               |\n";
     std::cout << "  |                                                            |\n";
     std::cout << "  +============================================================+\n";
     std::cout << Color::RESET << "\n";
@@ -290,12 +291,12 @@ static void printMenu(double noisePct) {
     std::cout << "  |                    INTERACTIVE  MODE                     |\n";
     std::cout << "  +----------------------------------------------------------+\n";
     std::cout << Color::RESET;
-    menuLine("[1] Send message  (Node A -> Node B)");
-    menuLine("[2] Send message  (Node B -> Node A)");
+    menuLine("[1] Send data     (Sequencer -> Server)");
+    menuLine("[2] Send data     (Server -> Sequencer)");
     menuLine(noiseStr.str());
     menuLine(winStr.str());
     menuLine(mtuStr.str());
-    menuLine("[6] Transfer a file   (A -> B)");
+    menuLine("[6] Transmit genome data (FASTQ file)");
     menuLine("[7] Run demo (automatic)");
     menuLine("[8] View session statistics");
     menuLine("[9] Exit");
@@ -355,14 +356,16 @@ int main() {
 
     printBanner();
 
-    // Create nodes
-    Node nodeA("Node A", "192.168.1.1", "AA:BB:CC:DD:EE:01");
-    Node nodeB("Node B", "192.168.1.2", "AA:BB:CC:DD:EE:02");
+    // Create nodes -- themed as genome sequencing infrastructure
+    Node nodeA("Sequencer",       "10.0.1.1", "AA:BB:CC:DD:EE:01");
+    Node nodeB("Analysis-Server", "10.0.1.2", "AA:BB:CC:DD:EE:02");
 
     logInfo("Created " + nodeA.getName() +
             "  [IP: " + nodeA.getIP() + "  MAC: " + nodeA.getMAC() + "]");
     logInfo("Created " + nodeB.getName() +
             "  [IP: " + nodeB.getIP() + "  MAC: " + nodeB.getMAC() + "]");
+    logInfo("Scenario: DNA Sequencer transmits FASTQ reads to Analysis Server");
+    logInfo("Channel noise simulates electromagnetic interference on the data link");
     std::cout << "\n";
 
     // Create medium
@@ -409,8 +412,10 @@ int main() {
             logInfo("MTU set to " + std::to_string(g_mtu) + " bytes");
 
         } else if (choice == "6") {
-            // File transfer
-            std::string filePath = getInput("Enter path to file: ");
+            // Genome data transfer
+            logInfo("Genome Data Transfer Mode");
+            logInfo("Sequencer will transmit FASTQ reads to Analysis Server.");
+            std::string filePath = getInput("Enter path to FASTQ/data file (e.g. genome_sample.fastq): ");
             if (filePath.empty()) {
                 logError("Empty path. Cancelled.");
                 continue;
@@ -430,8 +435,10 @@ int main() {
                 continue;
             }
 
-            logInfo("Read " + std::to_string(fileData.size()) +
-                    " bytes from: " + filePath);
+            logInfo("Loaded " + std::to_string(fileData.size()) +
+                    " bytes of genome sequence data from: " + filePath);
+            logInfo("A single bit-flip in genome data can misidentify a base pair!");
+            logInfo("CRC-32 + Go-Back-N ARQ will ensure error-free delivery.");
             printSeparator();
 
             // Send file contents through the protocol stack
@@ -456,38 +463,39 @@ int main() {
 
                 printThickSeparator();
                 std::cout << Color::BOLD_CYAN
-                          << "  FILE INTEGRITY VERIFICATION\n" << Color::RESET;
+                          << "  GENOME DATA INTEGRITY VERIFICATION\n" << Color::RESET;
                 if (receivedData == fileData) {
-                    logSuccess("PASS -- Original and received files are IDENTICAL ("
+                    logSuccess("PASS -- All genome sequence data is INTACT ("
                                + std::to_string(fileData.size()) + " bytes)");
+                    logSuccess("Zero base-pair errors. Data safe for downstream analysis.");
                 } else {
-                    logError("FAIL -- Files differ!");
+                    logError("FAIL -- Genome data corrupted! Retransmission required.");
                 }
                 printThickSeparator();
             }
 
         } else if (choice == "7") {
-            // Auto demo
-            logInfo("Running automatic demo...");
+            // Auto demo with genome-themed messages
+            logInfo("Running genome sequencing demo...");
             std::cout << "\n";
 
-            std::string msg1 = "Hello from Node A! This is a test message.";
+            std::string msg1 = "GATTACA-CTGAATTC-GCTAGC-READ_001-PHRED:40-PASS";
             TransmissionStats ts1 = sendWithGoBackN(nodeA, nodeB, msg1, medium);
             session.accumulate(ts1);
 
             std::cout << "\n\n";
 
-            std::string msg2 = "Acknowledged! Reply from Node B.";
+            std::string msg2 = "ACK:READ_001-ALIGNED-CHR17:43044295-BRCA1";
             TransmissionStats ts2 = sendWithGoBackN(nodeB, nodeA, msg2, medium);
             session.accumulate(ts2);
 
             std::cout << "\n";
             printThickSeparator();
             std::cout << Color::BOLD_CYAN
-                      << "  DEMO COMPLETE\n" << Color::RESET;
+                      << "  GENOME DEMO COMPLETE\n" << Color::RESET;
             std::cout << Color::CYAN
-                      << "  A -> B: " << (ts1.delivered ? "DELIVERED" : "FAILED") << "\n"
-                      << "  B -> A: " << (ts2.delivered ? "DELIVERED" : "FAILED") << "\n"
+                      << "  Sequencer -> Server: " << (ts1.delivered ? "READ DELIVERED" : "FAILED") << "\n"
+                      << "  Server -> Sequencer: " << (ts2.delivered ? "ACK DELIVERED" : "FAILED") << "\n"
                       << Color::RESET;
             printThickSeparator();
 
