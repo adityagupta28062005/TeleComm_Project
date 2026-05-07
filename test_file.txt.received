@@ -1,0 +1,8 @@
+This is a sample test file for the OSI Protocol Stack Simulation.
+It demonstrates real-world file transfer through the network layers.
+The file will be fragmented, transmitted through a noisy channel,
+and reassembled at the destination with integrity verification.
+
+Line 5: Testing special characters: Hello, World! @#$%^&*()
+Line 6: The quick brown fox jumps over the lazy dog.
+Line 7: END OF TEST FILE

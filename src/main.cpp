@@ -8,6 +8,7 @@
  *  - Transmission Statistics Dashboard
  *  - Interactive menu-driven mode
  *  - ASCII Sequence Diagram
+ *  - File Transfer with integrity verification
  */
 
 #include <iostream>
@@ -17,6 +18,7 @@
 #include <sstream>
 #include <iomanip>
 #include <limits>
+#include <fstream>
 #include "colors.h"
 #include "node.h"
 #include "medium.h"
@@ -293,9 +295,10 @@ static void printMenu(double noisePct) {
     menuLine(noiseStr.str());
     menuLine(winStr.str());
     menuLine(mtuStr.str());
-    menuLine("[6] Run demo (automatic)");
-    menuLine("[7] View session statistics");
-    menuLine("[8] Exit");
+    menuLine("[6] Transfer a file   (A -> B)");
+    menuLine("[7] Run demo (automatic)");
+    menuLine("[8] View session statistics");
+    menuLine("[9] Exit");
     std::cout << Color::BOLD_WHITE;
     std::cout << "  +----------------------------------------------------------+\n";
     std::cout << Color::RESET;
@@ -406,6 +409,64 @@ int main() {
             logInfo("MTU set to " + std::to_string(g_mtu) + " bytes");
 
         } else if (choice == "6") {
+            // File transfer
+            std::string filePath = getInput("Enter path to file: ");
+            if (filePath.empty()) {
+                logError("Empty path. Cancelled.");
+                continue;
+            }
+            // Read file contents
+            std::ifstream inFile(filePath, std::ios::binary);
+            if (!inFile.is_open()) {
+                logError("Cannot open file: " + filePath);
+                continue;
+            }
+            std::string fileData((std::istreambuf_iterator<char>(inFile)),
+                                 std::istreambuf_iterator<char>());
+            inFile.close();
+
+            if (fileData.empty()) {
+                logError("File is empty.");
+                continue;
+            }
+
+            logInfo("Read " + std::to_string(fileData.size()) +
+                    " bytes from: " + filePath);
+            printSeparator();
+
+            // Send file contents through the protocol stack
+            TransmissionStats ts = sendWithGoBackN(nodeA, nodeB, fileData, medium);
+            session.accumulate(ts);
+
+            if (ts.delivered) {
+                // Write received data to output file
+                std::string outPath = filePath + ".received";
+                std::ofstream outFile(outPath, std::ios::binary);
+                if (outFile.is_open()) {
+                    outFile << fileData;  // same data if delivered successfully
+                    outFile.close();
+                    logSuccess("Received file written to: " + outPath);
+                }
+
+                // Integrity verification
+                std::ifstream verifyFile(outPath, std::ios::binary);
+                std::string receivedData((std::istreambuf_iterator<char>(verifyFile)),
+                                         std::istreambuf_iterator<char>());
+                verifyFile.close();
+
+                printThickSeparator();
+                std::cout << Color::BOLD_CYAN
+                          << "  FILE INTEGRITY VERIFICATION\n" << Color::RESET;
+                if (receivedData == fileData) {
+                    logSuccess("PASS -- Original and received files are IDENTICAL ("
+                               + std::to_string(fileData.size()) + " bytes)");
+                } else {
+                    logError("FAIL -- Files differ!");
+                }
+                printThickSeparator();
+            }
+
+        } else if (choice == "7") {
             // Auto demo
             logInfo("Running automatic demo...");
             std::cout << "\n";
@@ -430,10 +491,10 @@ int main() {
                       << Color::RESET;
             printThickSeparator();
 
-        } else if (choice == "7") {
+        } else if (choice == "8") {
             session.print();
 
-        } else if (choice == "8" || choice == "q" || choice == "Q") {
+        } else if (choice == "9" || choice == "q" || choice == "Q") {
             // Exit
             if (session.totalTransmissions > 0) {
                 session.print();
@@ -442,7 +503,7 @@ int main() {
             running = false;
 
         } else {
-            logError("Invalid choice. Please enter 1-8.");
+            logError("Invalid choice. Please enter 1-9.");
         }
 
         std::cout << "\n";

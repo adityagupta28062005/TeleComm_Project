@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 ![Build](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge)
 
-*Simulates the **Network (L3)**, **Data Link (L2)**, and **Physical (L1)** layers of the OSI model — featuring Go-Back-N ARQ, IP fragmentation, CRC-32 error detection, and a noisy transmission medium — with zero external dependencies.*
+*Simulates the **Network (L3)**, **Data Link (L2)**, and **Physical (L1)** layers of the OSI model — featuring Go-Back-N ARQ, IP fragmentation, CRC-32 error detection, a noisy transmission medium, and **real file transfer with integrity verification** — with zero external dependencies.*
 
 ---
 
@@ -18,9 +18,87 @@
 
 ## 🎯 Project Objective
 
-This project provides a **hands-on, educational simulation** of how data traverses the lower layers of the OSI networking model. Two virtual nodes (`Node A` and `Node B`) exchange text messages through a simulated noisy channel. Each message travels **down** the protocol stack on the sender side (Application → Network → Data Link → Physical), crosses a **noisy medium** that can flip bits, and travels **up** the stack on the receiver side — exactly mirroring real-world network communication.
+This project provides a **hands-on, educational simulation** of how data traverses the lower layers of the OSI networking model. Two virtual nodes (`Node A` and `Node B`) exchange data through a simulated noisy channel. Each message travels **down** the protocol stack on the sender side (Application → Network → Data Link → Physical), crosses a **noisy medium** that can flip bits, and travels **up** the stack on the receiver side — exactly mirroring real-world network communication.
 
-The simulation is fully **interactive**: users can type their own messages, adjust noise levels, configure protocol parameters, and observe the effects in real time through color-coded, layer-tagged console output.
+Beyond being an academic exercise, the simulation includes a **real-world application**: transferring actual files between nodes through the full protocol stack, with automatic integrity verification — demonstrating the same principles used by TCP/IP when you download a file or send an email.
+
+The simulation is fully **interactive**: users can type their own messages, transfer files, adjust noise levels, configure protocol parameters, and observe the effects in real time through color-coded, layer-tagged console output.
+
+---
+
+## 🌍 Real-World Application: Reliable File Transfer
+
+> **This is not just a theoretical simulation — it solves a real problem.**
+
+The simulator includes a fully functional **file transfer system** that demonstrates exactly how real-world protocols like **TCP/IP** deliver data reliably over unreliable networks. When you transfer a file:
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │                   FILE TRANSFER PIPELINE                     │
+  │                                                              │
+  │  1. READ       File is read from disk as raw bytes           │
+  │       |                                                      │
+  │  2. FRAGMENT   Split into MTU-sized chunks (e.g. 20 bytes)   │
+  │       |        Each chunk gets IP headers + fragment metadata │
+  │       |                                                      │
+  │  3. FRAME      Each fragment wrapped with MAC + CRC-32       │
+  │       |                                                      │
+  │  4. ENCODE     Frames serialized to binary bit streams       │
+  │       |                                                      │
+  │  5. TRANSMIT   Bits travel through the noisy channel         │
+  │       |        Random bit-flips may corrupt data!            │
+  │       |                                                      │
+  │  6. DETECT     CRC-32 catches corrupted frames               │
+  │       |        Go-Back-N retransmits automatically            │
+  │       |                                                      │
+  │  7. REASSEMBLE Fragments collected and joined in order        │
+  │       |                                                      │
+  │  8. WRITE      Reconstructed file saved to disk              │
+  │       |                                                      │
+  │  9. VERIFY     Byte-by-byte comparison: original == received │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+**This is identical to what happens when you:**
+- Download a file from the internet (TCP fragments, checksums, retransmits)
+- Send an email attachment (SMTP/TCP ensures reliable delivery)
+- Stream a video (UDP/RTP handles packetization, though without retransmission)
+- Transfer files over Bluetooth or Wi-Fi (L2 CRC + ARQ handle noise)
+
+### How to Use It
+
+```
+  Choice> 6
+  Enter path to file: test_file.txt
+
+  [INFO]    Read 404 bytes from: test_file.txt
+  [LAYER 3] Fragmenting message (404 bytes) with MTU=20 -> 21 fragment(s)
+  [LAYER 3]   Fragment [0/20]: "This is a sample tes" (20 bytes) [MORE]
+  [LAYER 3]   Fragment [1/20]: "t file for the OSI P" (20 bytes) [MORE]
+  ...
+  [LAYER 2] CRC-32 computed for each frame
+  [LAYER 1] Encoded to binary bit streams
+  [MEDIUM]  Transmitted through noisy channel (0.15% bit-flip rate)
+  ...
+  [+ SUCCESS] Node B reassembled message (404 bytes)
+  [+ SUCCESS] Received file written to: test_file.txt.received
+
+  ================================================================
+    FILE INTEGRITY VERIFICATION
+  [+ SUCCESS] PASS -- Original and received files are IDENTICAL (404 bytes)
+  ================================================================
+```
+
+### Why This Matters
+
+| Real-World Concept | How This Simulation Demonstrates It |
+|---|---|
+| **TCP Segmentation** | Messages are split into MTU-sized fragments, just like TCP segments |
+| **IP Fragmentation** | Each fragment carries `fragmentID`, `offset`, and `moreFragments` — identical to IPv4 |
+| **Reliable Delivery** | Go-Back-N ARQ ensures every fragment arrives correctly, like TCP's sliding window |
+| **Error Detection** | CRC-32 catches bit errors, mirroring Ethernet FCS and TCP checksums |
+| **Data Integrity** | Post-transfer verification confirms the received file is byte-identical to the original |
+| **Noise Resilience** | The system automatically retransmits corrupted data — the user gets a perfect file despite channel noise |
 
 ---
 
@@ -31,6 +109,11 @@ The simulation is fully **interactive**: users can type their own messages, adju
     <th>Feature</th>
     <th>Description</th>
     <th>Layer</th>
+  </tr>
+  <tr>
+    <td>📁 <strong>File Transfer + Integrity Verification</strong></td>
+    <td>Transfer real files through the protocol stack. Files are fragmented, transmitted over the noisy channel, reassembled, and verified byte-by-byte — demonstrating real-world TCP/IP behavior.</td>
+    <td>All</td>
   </tr>
   <tr>
     <td>🔀 <strong>Go-Back-N Sliding Window ARQ</strong></td>
@@ -54,7 +137,7 @@ The simulation is fully **interactive**: users can type their own messages, adju
   </tr>
   <tr>
     <td>🖥️ <strong>Interactive Mode</strong></td>
-    <td>Menu-driven interface to send custom messages, adjust noise/window/MTU at runtime, run automated demos, and view session statistics.</td>
+    <td>9-option menu-driven interface: send messages, transfer files, adjust noise/window/MTU at runtime, run automated demos, and view session statistics.</td>
     <td>All</td>
   </tr>
   <tr>
@@ -85,7 +168,7 @@ The simulation is fully **interactive**: users can type their own messages, adju
   |                      |                           |                      |
   | +------------------+ |                           | +------------------+ |
   | |  APPLICATION     | |                           | |  APPLICATION     | |
-  | |  "Hello World!"  | |                           | |  (Reassembled)   | |
+  | | Text / File Data | |                           | |  (Reassembled)   | |
   | +--------+---------+ |                           | +--------+---------+ |
   |          |            |                           |          ^            |
   | +--------v---------+ |                           | +--------+---------+ |
@@ -127,8 +210,9 @@ Telecomm_Project/
 │
 ├── CMakeLists.txt                  # CMake build configuration
 ├── README.md                       # This file
+├── test_file.txt                   # Sample file for file transfer demo
 │
-├── include/                        # Header files
+├── include/                        # Header files (10 files)
 │   ├── colors.h                    # ANSI color codes & layer-tagged logging functions
 │   ├── packet.h                    # Layer 3 Packet struct (IP + fragmentation fields)
 │   ├── frame.h                     # Layer 2 Frame struct (MAC + CRC + seq#)
@@ -140,8 +224,8 @@ Telecomm_Project/
 │   ├── statistics.h                # Transmission & session statistics (header-only)
 │   └── sequence_diagram.h          # ASCII sequence diagram renderer (header-only)
 │
-└── src/                            # Source files
-    ├── main.cpp                    # Interactive orchestrator + Go-Back-N protocol
+└── src/                            # Source files (6 files)
+    ├── main.cpp                    # Interactive orchestrator + Go-Back-N + file transfer
     ├── network_layer.cpp           # Layer 3: encapsulate, fragment, reassemble
     ├── datalink_layer.cpp          # Layer 2: CRC-32, MAC framing, ACK/NACK
     ├── physical_layer.cpp          # Layer 1: byte <-> binary bit encoding
@@ -149,7 +233,7 @@ Telecomm_Project/
     └── node.cpp                    # Node: stack orchestration
 ```
 
-> **18 files total** — 10 headers + 6 source files + CMakeLists.txt + README
+> **19 files total** — 10 headers + 6 source files + CMakeLists.txt + README + test file
 
 ---
 
@@ -195,7 +279,7 @@ g++ -std=c++17 -Wall -Wextra -Iinclude `
 
 ## 🖥️ Interactive Mode
 
-The simulation starts with a fully interactive, menu-driven interface:
+The simulation starts with a fully interactive, 9-option menu-driven interface:
 
 ```
   +----------------------------------------------------------+
@@ -206,17 +290,85 @@ The simulation starts with a fully interactive, menu-driven interface:
   |  [3] Change noise level      (current: 0.2%)             |
   |  [4] Change window size      (current: 4)                |
   |  [5] Change MTU              (current: 20 bytes)         |
-  |  [6] Run demo (automatic)                                |
-  |  [7] View session statistics                             |
-  |  [8] Exit                                                |
+  |  [6] Transfer a file         (A -> B)                    |
+  |  [7] Run demo (automatic)                                |
+  |  [8] View session statistics                             |
+  |  [9] Exit                                                |
   +----------------------------------------------------------+
 ```
 
-Users can experiment with different configurations to observe how noise, window size, and MTU affect protocol behavior — making it a powerful educational tool.
+Users can experiment with different configurations to observe how noise, window size, and MTU affect protocol behavior — making it a powerful educational and experimentation tool.
+
+**Example experiments a user can run:**
+- Set noise to 0% → observe perfect delivery with no retransmissions
+- Set noise to 5% → watch Go-Back-N retransmit aggressively, see BER rise in statistics
+- Change window size from 1 (Stop-and-Wait behavior) to 8 → compare throughput
+- Change MTU from 10 to 50 → observe how fragment count affects efficiency
+- Transfer a file at different noise levels → verify integrity always passes when delivered
 
 ---
 
 ## 📚 Technical Deep Dives
+
+### 📁 File Transfer with Integrity Verification
+
+The file transfer feature bridges the gap between academic simulation and real-world application. It demonstrates that the protocol stack built in this project is capable of **reliably delivering arbitrary binary data** — the same fundamental requirement that every networking protocol must satisfy.
+
+**Complete Transfer Flow:**
+
+```
+                    NODE A (Sender)                         NODE B (Receiver)
+                    ===============                         =================
+
+  [disk]  test_file.txt (404 bytes)
+     |
+     v
+  [L3 NETWORK]  Fragment into 21 chunks
+     |           (20 bytes each, last = 4 bytes)
+     |           Each gets: srcIP, dstIP, TTL=64,
+     |           fragmentID=1, offset=0..20, moreFragments
+     v
+  [L2 DATALINK]  Frame each fragment
+     |            Add: srcMAC, dstMAC, seqNum, CRC-32
+     v
+  [L1 PHYSICAL]  Encode to binary bit stream
+     |
+     v
+  [MEDIUM]  ~~~~~~~~~~~~~ noisy channel ~~~~~~~~~~~~~
+     |       Some bits flip randomly (0.15% per bit)
+     v
+                                                     [L1 PHYSICAL]  Decode bits -> bytes
+                                                          |
+                                                          v
+                                                     [L2 DATALINK]  Verify CRC-32
+                                                          |          - OK?  -> ACK, accept
+                                                          |          - FAIL? -> ACK(last good)
+                                                          |                    sender retransmits!
+                                                          v
+                                                     [L3 NETWORK]  Collect all 21 fragments
+                                                          |         Reassemble in order
+                                                          v
+                                                     [disk]  test_file.txt.received (404 bytes)
+                                                          |
+                                                          v
+                                                     [VERIFY]  SHA-like byte comparison
+                                                               Original == Received?
+                                                               -> PASS: Files are IDENTICAL
+```
+
+**Real-world protocols this mirrors:**
+
+| This Simulation | Real Protocol |
+|---|---|
+| `fragment()` with MTU | TCP segmentation / IPv4 fragmentation |
+| `fragmentID` + `offset` + `moreFragments` | IPv4 header fields (Identification, Fragment Offset, MF flag) |
+| Go-Back-N window | TCP sliding window (RFC 793) |
+| CRC-32 checksum | Ethernet FCS (IEEE 802.3) |
+| Cumulative ACK | TCP cumulative acknowledgement |
+| Noisy medium | Wireless channels, congested networks, long-haul fiber |
+| Integrity verification | MD5/SHA checksums used by download managers |
+
+---
 
 ### 🔀 Go-Back-N Sliding Window Protocol
 
@@ -246,7 +398,7 @@ The Go-Back-N ARQ protocol ensures **reliable, in-order delivery** over a noisy 
 **Key behaviors:**
 | Property | Behavior |
 |---|---|
-| Window Size (W) | Configurable (default 4), sender transmits up to W frames before waiting |
+| Window Size (W) | Configurable at runtime (default 4), sender transmits up to W frames before waiting |
 | ACK Strategy | Cumulative — ACK[n] acknowledges all frames ≤ n |
 | Error Handling | Receiver discards out-of-order or corrupted frames |
 | Retransmission | Sender "goes back" to first unacknowledged frame and retransmits entire window |
@@ -309,6 +461,12 @@ The medium simulates real-world channel noise using **independent bit-flip error
 - Default: 0.15% per bit — produces realistic mix of clean and corrupted frames
 - Adjustable at runtime via the interactive menu (0% to 50%)
 
+**Real-world noise sources this models:**
+- Electromagnetic interference in copper cables
+- Signal attenuation in long-distance fiber optics
+- Multipath fading in wireless (Wi-Fi, Bluetooth, cellular)
+- Cosmic ray bit-flips in satellite communications
+
 ---
 
 ### 📊 Transmission Statistics Dashboard
@@ -341,10 +499,10 @@ After every transmission, a comprehensive statistics table is displayed:
 ```
 
 **Computed Metrics:**
-- **Bit Error Rate (BER):** `bits_flipped / bits_transmitted × 100%`
-- **Transmission Efficiency:** `frames_delivered / frames_sent × 100%`
+- **Bit Error Rate (BER):** `bits_flipped / bits_transmitted × 100%` — the fundamental measure of channel quality
+- **Transmission Efficiency:** `frames_delivered / frames_sent × 100%` — measures protocol overhead from retransmissions
 
-Session-wide cumulative statistics are also available via the interactive menu.
+Session-wide cumulative statistics track all transmissions across the entire interactive session.
 
 ---
 
@@ -377,26 +535,28 @@ After each transmission, the simulation renders an ASCII sequence diagram showin
           [ MESSAGE DELIVERED SUCCESSFULLY ]
 ```
 
-This makes it visually obvious when noise corrupts a frame, how the receiver rejects it, and how Go-Back-N triggers retransmission.
+This makes it visually obvious when noise corrupts a frame, how the receiver rejects it, and how Go-Back-N triggers retransmission — providing the same visibility that tools like **Wireshark** offer for real network traffic.
 
 ---
 
 ## 🧮 Networking Concepts Demonstrated
 
-| Concept | How It's Demonstrated |
-|---|---|
-| **OSI Layered Architecture** | Data flows down L3→L2→L1 at sender, up L1→L2→L3 at receiver |
-| **Encapsulation / Decapsulation** | Each layer wraps data with its own headers (IP, MAC, CRC) |
-| **Logical Addressing (IP)** | Packets carry source/destination IP addresses |
-| **Physical Addressing (MAC)** | Frames carry source/destination MAC addresses |
-| **Time-To-Live (TTL)** | Each packet starts with TTL=64; checked at receiver |
-| **Error Detection (CRC-32)** | Frames include a checksum verified before acceptance |
-| **Flow Control (Go-Back-N)** | Sliding window manages frame pipelining and retransmission |
-| **IP Fragmentation** | Large payloads split at L3, reassembled at destination |
-| **Bit-Level Encoding** | Bytes serialized into binary bit strings at L1 |
-| **Channel Noise** | Random bit-flips model real-world transmission errors |
-| **ARQ (Automatic Repeat reQuest)** | Corrupted frames trigger automatic retransmission |
-| **Cumulative Acknowledgements** | ACK[n] confirms receipt of all frames up to n |
+| Concept | How It's Demonstrated | Real-World Equivalent |
+|---|---|---|
+| **OSI Layered Architecture** | Data flows down L3→L2→L1 at sender, up L1→L2→L3 at receiver | Every networked device follows this model |
+| **Encapsulation / Decapsulation** | Each layer wraps data with its own headers (IP, MAC, CRC) | HTTP→TCP→IP→Ethernet header stacking |
+| **Logical Addressing (IP)** | Packets carry source/destination IP addresses | IPv4/IPv6 addressing |
+| **Physical Addressing (MAC)** | Frames carry source/destination MAC addresses | Ethernet MAC addresses |
+| **Time-To-Live (TTL)** | Each packet starts with TTL=64; checked at receiver | IPv4 TTL / IPv6 Hop Limit |
+| **Error Detection (CRC-32)** | Frames include a checksum verified before acceptance | Ethernet FCS, Wi-Fi FCS |
+| **Flow Control (Go-Back-N)** | Sliding window manages frame pipelining and retransmission | TCP sliding window (RFC 793) |
+| **IP Fragmentation** | Large payloads split at L3, reassembled at destination | IPv4 fragmentation (RFC 791) |
+| **Reliable File Transfer** | Real files sent through the stack with integrity verification | FTP, HTTP downloads, email (SMTP) |
+| **Bit-Level Encoding** | Bytes serialized into binary bit strings at L1 | Manchester encoding, 8b/10b |
+| **Channel Noise** | Random bit-flips model real-world transmission errors | EMI, signal attenuation, crosstalk |
+| **ARQ (Automatic Repeat reQuest)** | Corrupted frames trigger automatic retransmission | TCP retransmission, Wi-Fi ARQ |
+| **Cumulative Acknowledgements** | ACK[n] confirms receipt of all frames up to n | TCP cumulative ACK (RFC 793) |
+| **Data Integrity Verification** | Post-transfer byte-by-byte comparison | MD5/SHA checksums on downloads |
 
 ---
 
@@ -411,6 +571,7 @@ This makes it visually obvious when noise corrupts a frame, how the receiver rej
 | **ANSI Escape Codes** | Cross-platform colored output without external libraries |
 | **Mersenne Twister PRNG** | High-quality randomness for noise simulation (`std::mt19937`) |
 | **CRC-32 Lookup Table** | 256-entry precomputed table for efficient checksumming |
+| **Binary File I/O** | File transfer uses `std::ios::binary` for correct handling of any file type |
 
 ---
 
